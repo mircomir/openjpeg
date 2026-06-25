@@ -325,6 +325,20 @@ static OPJ_BOOL opj_jp2_read_colr(opj_jp2_t *jp2,
                                   OPJ_UINT32 p_colr_header_size,
                                   opj_event_mgr_t * p_manager);
 
+/**
+ * Reads the Resolution box.
+ *
+ * @param jp2                           the jpeg2000 file codec.
+ * @param p_res_header_data             pointer to actual data (already read from file)
+ * @param p_res_header_size             the size of the color header
+ * @param p_manager                     the user event manager.
+ * @return                              true if the bpc header is valid, false else.
+ */
+static OPJ_BOOL opj_jp2_read_res(opj_jp2_t *jp2,
+                                 OPJ_BYTE * p_res_header_data,
+                                 OPJ_UINT32 p_res_header_size,
+                                 opj_event_mgr_t * p_manager);
+
 /*@}*/
 
 /*@}*/
@@ -434,8 +448,8 @@ static const opj_jp2_header_handler_t jp2_img_header [] = {
     {JP2_BPCC, opj_jp2_read_bpcc},
     {JP2_PCLR, opj_jp2_read_pclr},
     {JP2_CMAP, opj_jp2_read_cmap},
-    {JP2_CDEF, opj_jp2_read_cdef}
-
+    {JP2_CDEF, opj_jp2_read_cdef},
+    {JP2_RES, opj_jp2_read_res}
 };
 
 /**
@@ -1590,6 +1604,40 @@ static OPJ_BOOL opj_jp2_read_colr(opj_jp2_t *jp2,
                       "COLR BOX meth value is not a regular value (%d), "
                       "so we will ignore the entire Colour Specification box. \n", jp2->meth);
     }
+
+    return OPJ_TRUE;
+}
+
+static OPJ_BOOL opj_jp2_read_res(opj_jp2_t *jp2,
+                                 OPJ_BYTE * p_res_header_data,
+                                 OPJ_UINT32 p_res_header_size,
+                                 opj_event_mgr_t * p_manager)
+{
+    OPJ_FLOAT64 l_res_x, l_res_y;
+
+    /* preconditions */
+    assert(p_res_header_data != 00);
+    assert(jp2 != 00);
+    assert(p_manager != 00);
+
+    if (p_res_header_size < 17) {
+        opj_event_msg(p_manager, EVT_ERROR, "Bad resolution box (bad size)\n");
+        return OPJ_FALSE;
+    }
+
+    /* read version */
+    OPJ_UINT32 l_version;
+    opj_read_bytes(p_res_header_data, &l_version, 1);
+    p_res_header_data += 1;
+
+    /* read X and Y resolution as double precision floating point (IEEE 754) */
+    opj_read_double(p_res_header_data, &l_res_x);
+    p_res_header_data += 8;
+    opj_read_double(p_res_header_data, &l_res_y);
+    p_res_header_data += 8;
+
+    jp2->res_x = l_res_x;
+    jp2->res_y = l_res_y;
 
     return OPJ_TRUE;
 }

@@ -723,6 +723,10 @@ typedef struct opj_image {
     OPJ_UINT32 numcomps;
     /** color space: sRGB, Greyscale or YUV */
     OPJ_COLOR_SPACE color_space;
+    /** horizontal resolution (pix/m) */
+    OPJ_FLOAT64 res_x;
+    /** vertical resolution (pix/m) */
+    OPJ_FLOAT64 res_y;
     /** image components */
     opj_image_comp_t *comps;
     /** 'restricted' ICC profile */

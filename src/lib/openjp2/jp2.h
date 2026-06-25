@@ -61,7 +61,7 @@
 #define     JP2_JP2  0x6a703220    /**< File type fields */
 
 /* For the future */
-/* #define JP2_RES 0x72657320 */  /**< Resolution box (super-box) */
+#define JP2_RES 0x72657320    /**< Resolution box (super-box) */
 /* #define JP2_JP2I 0x6a703269 */  /**< Intellectual property box */
 /* #define JP2_XML  0x786d6c20 */  /**< XML box */
 /* #define JP2_UUID 0x75756994 */  /**< UUID box */
@@ -158,6 +158,10 @@ typedef struct opj_jp2 {
     OPJ_UINT32 w;
     /* height of image */
     OPJ_UINT32 h;
+    /* horizontal resolution (pix/m) */
+    OPJ_FLOAT64 res_x;
+    /* vertical resolution (pix/m) */
+    OPJ_FLOAT64 res_y;
     /* number of components in the image */
     OPJ_UINT32 numcomps;
     OPJ_UINT32 bpc;
