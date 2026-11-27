@@ -10,6 +10,9 @@ include_directories(
   ${TIFF_INCLUDE_DIRNAME}
   )
 
+string(REPEAT "A" 49 OPJ_DECOMPRESS_OUTFOR_TOO_LONG)
+string(REPEAT "A" 49 OPJ_COMPRESS_OUTFOR_TOO_LONG)
+
 # First thing define the common source:
 set(compare_images_SRCS compare_images.c
   ${OPENJPEG_SOURCE_DIR}/src/bin/jp2/convert.c
@@ -42,6 +45,9 @@ target_link_libraries(j2k_random_tile_access ${OPENJPEG_LIBRARY_NAME})
 
 add_executable(test_tile_part_interleaved test_tile_part_interleaved.c)
 target_link_libraries(test_tile_part_interleaved ${OPENJPEG_LIBRARY_NAME})
+
+add_executable(test_empty_resolution_encode test_empty_resolution_encode.c)
+target_link_libraries(test_empty_resolution_encode ${OPENJPEG_LIBRARY_NAME})
 
 add_executable(compare_raw_files ${compare_raw_files_SRCS})
 
@@ -90,6 +96,10 @@ set_property(TEST rta5 APPEND PROPERTY DEPENDS tte5)
 # whose tile-parts are interleaved across tiles (self-contained, no test data).
 add_test(NAME rta_interleaved_tile_parts COMMAND test_tile_part_interleaved)
 
+# Non-regression test for encoding tiles whose lower resolution levels have no
+# rows (self-contained, no test data).
+add_test(NAME empty_resolution_encode COMMAND test_empty_resolution_encode)
+
 add_test(NAME tda_prep_reversible_no_precinct COMMAND test_tile_encoder 1 256 256 32 32 8 0 reversible_no_precinct.j2k 4 4 3 0 0 1)
 add_test(NAME tda_reversible_no_precinct COMMAND test_decode_area -q reversible_no_precinct.j2k)
 set_property(TEST tda_reversible_no_precinct APPEND PROPERTY DEPENDS tda_prep_reversible_no_precinct)
@@ -113,6 +123,16 @@ set_property(TEST tda_irreversible_203_201_17_19_no_precinct APPEND PROPERTY DEP
 add_test(NAME tda_prep_strip COMMAND test_tile_encoder 1 256 256 256 256 8 0 tda_single_tile.j2k)
 add_test(NAME tda_strip COMMAND test_decode_area -q -strip_height 3 -strip_check tda_single_tile.j2k)
 set_property(TEST tda_strip APPEND PROPERTY DEPENDS tda_prep_strip)
+add_test(NAME opj_decompress_outfor_too_long
+  COMMAND ${CMAKE_COMMAND}
+    -DOPJ_DECOMPRESS=$<TARGET_FILE:opj_decompress>
+    -DOUTFOR_ARG=${OPJ_DECOMPRESS_OUTFOR_TOO_LONG}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_opj_decompress_outfor_too_long.cmake)
+add_test(NAME opj_compress_outfor_too_long
+  COMMAND ${CMAKE_COMMAND}
+    -DOPJ_COMPRESS=$<TARGET_FILE:opj_compress>
+    -DOUTFOR_ARG=${OPJ_COMPRESS_OUTFOR_TOO_LONG}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_opj_compress_outfor_too_long.cmake)
 
 add_executable(include_openjpeg include_openjpeg.c)
 

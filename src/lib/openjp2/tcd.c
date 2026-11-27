@@ -877,7 +877,8 @@ static INLINE OPJ_BOOL opj_tcd_init_tile(opj_tcd_t *p_tcd, OPJ_UINT32 p_tile_no,
         /*fprintf(stderr, "\tTile compo border = %d,%d,%d,%d\n", l_tilec->x0, l_tilec->y0,l_tilec->x1,l_tilec->y1);*/
 
         l_tilec->numresolutions = l_tccp->numresolutions;
-        if (l_tccp->numresolutions < l_cp->m_specific_param.m_dec.m_reduce) {
+        /* Use <= to prevent minimum_num_resolutions from underflowing to 0. */
+        if (l_tccp->numresolutions <= l_cp->m_specific_param.m_dec.m_reduce) {
             l_tilec->minimum_num_resolutions = 1;
         } else {
             l_tilec->minimum_num_resolutions = l_tccp->numresolutions -
@@ -1157,7 +1158,15 @@ static INLINE OPJ_BOOL opj_tcd_init_tile(opj_tcd_t *p_tcd, OPJ_UINT32 p_tile_no,
                     l_current_precinct->ch = (OPJ_UINT32)((brcblkyend - tlcblkystart) >>
                                                           cblkheightexpn);
 
-                    l_nb_code_blocks = l_current_precinct->cw * l_current_precinct->ch;
+                    OPJ_UINT64 l_nb_code_blocks_64 = (OPJ_UINT64)l_current_precinct->cw *
+                                                     l_current_precinct->ch;
+                    if (l_nb_code_blocks_64 > (OPJ_UINT32) - 1) {
+                        opj_event_msg(manager, EVT_ERROR,
+                                      "Code block count overflow for precinct %u (cw=%u, ch=%u)\n",
+                                      precno, l_current_precinct->cw, l_current_precinct->ch);
+                        return OPJ_FALSE;
+                    }
+                    l_nb_code_blocks = (OPJ_UINT32)l_nb_code_blocks_64;
                     /*fprintf(stderr, "\t\t\t\t precinct_cw = %d x recinct_ch = %d\n",l_current_precinct->cw, l_current_precinct->ch);      */
                     if ((((OPJ_UINT32) - 1) / (OPJ_UINT32)sizeof_block) <
                             l_nb_code_blocks) {
@@ -1213,6 +1222,20 @@ static INLINE OPJ_BOOL opj_tcd_init_tile(opj_tcd_t *p_tcd, OPJ_UINT32 p_tile_no,
                     } else {
                         l_current_precinct->imsbtree = opj_tgt_init(l_current_precinct->imsbtree,
                                                        l_current_precinct->cw, l_current_precinct->ch, manager);
+                    }
+
+                    /* opj_tgt_create()/opj_tgt_init() return NULL for a
+                     * precinct with no code-blocks, which is legal; the tag
+                     * trees are simply unused there.  Only a precinct that
+                     * does have code-blocks can have failed to allocate. */
+                    if (l_nb_code_blocks != 0 &&
+                            (!l_current_precinct->incltree ||
+                             !l_current_precinct->imsbtree)) {
+                        opj_event_msg(manager, EVT_ERROR,
+                                      "Not enough memory for precinct tag trees"
+                                      " (precinct %u)\n",
+                                      (OPJ_UINT32)precno);
+                        return OPJ_FALSE;
                     }
 
                     for (cblkno = 0; cblkno < l_nb_code_blocks; ++cblkno) {
@@ -1317,9 +1340,13 @@ static OPJ_BOOL opj_tcd_code_block_enc_allocate_data(opj_tcd_cblk_enc_t *
     /* and +33 for https://github.com/uclouvain/openjpeg/issues/1283 (-M 4) */
     /* and +63 for https://github.com/uclouvain/openjpeg/issues/1283 (-M 4 -IMF 2K) */
     /* and +74 for https://github.com/uclouvain/openjpeg/issues/1283 (-M 4 -n 8 -s 7,7 -I) */
-    /* TODO: is there a theoretical upper-bound for the compressed code */
-    /* block size ? */
-    l_data_size = 74 + (OPJ_UINT32)((p_code_block->x1 - p_code_block->x0) *
+    /* The above were hand-tuned constants; instead, bound the slack by the   */
+    /* maximum number of TERMINATED coding passes (cf. #539 / #1283). There    */
+    /* are at most 3 passes per magnitude bit-plane and at most 31 bit-planes; */
+    /* with TERMALL/RESTART each pass flushes the MQ coder, emitting a few      */
+    /* extra bytes. 3*31 passes * 8 bytes/termination bounds it for any         */
+    /* supported bit depth (the old constant 74 overflowed on 16-bit -M 4).     */
+    l_data_size = (3U * 31U * 8U) + (OPJ_UINT32)((p_code_block->x1 - p_code_block->x0) *
                                     (p_code_block->y1 - p_code_block->y0) * (OPJ_INT32)sizeof(OPJ_UINT32));
 
     if (l_data_size > p_code_block->data_size) {
