@@ -11,6 +11,7 @@ include_directories(
   )
 
 string(REPEAT "A" 49 OPJ_DECOMPRESS_OUTFOR_TOO_LONG)
+string(REPEAT "A" 49 OPJ_COMPRESS_OUTFOR_TOO_LONG)
 
 # First thing define the common source:
 set(compare_images_SRCS compare_images.c
@@ -127,6 +128,11 @@ add_test(NAME opj_decompress_outfor_too_long
     -DOPJ_DECOMPRESS=$<TARGET_FILE:opj_decompress>
     -DOUTFOR_ARG=${OPJ_DECOMPRESS_OUTFOR_TOO_LONG}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_opj_decompress_outfor_too_long.cmake)
+add_test(NAME opj_compress_outfor_too_long
+  COMMAND ${CMAKE_COMMAND}
+    -DOPJ_COMPRESS=$<TARGET_FILE:opj_compress>
+    -DOUTFOR_ARG=${OPJ_COMPRESS_OUTFOR_TOO_LONG}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_opj_compress_outfor_too_long.cmake)
 
 add_executable(include_openjpeg include_openjpeg.c)
 
